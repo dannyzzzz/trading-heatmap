@@ -5,45 +5,30 @@ import httpx
 
 app = FastAPI()
 
-# הגדרת CORS - פעם אחת בלבד ובצורה נקייה
+# זה החלק שפותר את "שגיאת חיבור" - הוא פותח את האבטחה
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # מאפשר לכל האתרים להתחבר
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# רשימת המניות שלך כולל אלו שציינת שקנית (TSEM, LXRX)
 TICKERS = ["FNGU", "AVGO", "AMZN", "NFLX", "NVDA", "GOOGL", "META", "AAPL", "MU", "MSFT", "PLTR", "TSEM", "LXRX"]
 
-async def get_ticker_data(client, ticker):
-    # כאן צריכה להיות הלוגיקה של הקריאה ל-API (Alpha Vantage / Polygon)
-    # לצורך הבדיקה, אני מחזיר נתון דמי כדי לוודא שהחיבור עובד
-    return {
-        "ticker": ticker, 
-        "price": 100.0, 
-        "open_price": 95.0, 
-        "daily_change": 5.2
-    }
-
+# דף נחיתה כדי שלא תראה "Not Found"
 @app.get("/")
 async def root():
-    return {"status": "online", "message": "Trading Backend is running"}
+    return {"message": "The server is UP and running!", "websocket_path": "/ws"}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
-        async with httpx.AsyncClient() as client:
-            while True:
-                tasks = [get_ticker_data(client, ticker) for ticker in TICKERS]
-                results = await asyncio.gather(*tasks)
-                # סינון תוצאות ריקות
-                valid_results = [r for r in results if r is not None]
-                await websocket.send_json(valid_results)
-                await asyncio.sleep(10) # עדכון כל 10 שניות
+        while True:
+            # נתונים זמניים לבדיקה
+            data = [{"ticker": t, "price": 150.0, "daily_change": 2.5} for t in TICKERS]
+            await websocket.send_json(data)
+            await asyncio.sleep(5)
     except WebSocketDisconnect:
-        print("Client disconnected")
-    except Exception as e:
-        print(f"Error: {e}")
+        pass
