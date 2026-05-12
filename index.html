@@ -36,8 +36,7 @@
     </div>
 
     <script>
-        const ws = new WebSocket('ws://trading-backend-6mqy.onrender.com/ws');
-        const container = document.getElementById('heatmap');
+        const ws = new WebSocket('wss://trading-backend-6mqy.onrender.com/ws');
 
         ws.onmessage = (event) => {
             try {
