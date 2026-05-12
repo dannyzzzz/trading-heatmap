@@ -11,7 +11,14 @@ API_KEY = "d7vouj1r01qj3ct7skmgd7vouj1r01qj3ct7skn0"
 TICKERS = ["FNGU", "AVGO", "AMZN", "NFLX", "NVDA", "GOOGL", "META", "AAPL", "MU", "MSFT", "PLTR"]
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # זה מאפשר לכל אתר (כולל GitHub) להתחבר
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 
 async def get_ticker_data(client, ticker):
