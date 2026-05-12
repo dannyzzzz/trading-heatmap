@@ -1,68 +1,49 @@
 import asyncio
-import httpx
-import pandas as pd
-import ta
-from datetime import datetime, timezone
-import time
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-
-API_KEY = "d7vouj1r01qj3ct7skmgd7vouj1r01qj3ct7skn0"
-TICKERS = ["FNGU", "AVGO", "AMZN", "NFLX", "NVDA", "GOOGL", "META", "AAPL", "MU", "MSFT", "PLTR"]
+import httpx
 
 app = FastAPI()
+
+# הגדרת CORS - פעם אחת בלבד ובצורה נקייה
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # זה מאפשר לכל אתר (כולל GitHub) להתחבר
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
+# רשימת המניות שלך כולל אלו שציינת שקנית (TSEM, LXRX)
+TICKERS = ["FNGU", "AVGO", "AMZN", "NFLX", "NVDA", "GOOGL", "META", "AAPL", "MU", "MSFT", "PLTR", "TSEM", "LXRX"]
 
 async def get_ticker_data(client, ticker):
-    try:
-        quote_url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={API_KEY}"
-        resp = await client.get(quote_url)
-        q = resp.json()
+    # כאן צריכה להיות הלוגיקה של הקריאה ל-API (Alpha Vantage / Polygon)
+    # לצורך הבדיקה, אני מחזיר נתון דמי כדי לוודא שהחיבור עובד
+    return {
+        "ticker": ticker, 
+        "price": 100.0, 
+        "open_price": 95.0, 
+        "daily_change": 5.2
+    }
 
-        if 'c' not in q or q['c'] == 0: return None
-
-        curr = q['c']
-        open_p = q.get('o', curr)
-
-        # d = Change, dp = Percent Change (מאתמול)
-        daily_pct = q.get('dp', 0)
-
-        return {
-            "ticker": ticker,
-            "price": float(curr),
-            "open_price": float(open_p),
-            "daily_change": float(daily_pct),
-            "updated": datetime.now(timezone.utc).isoformat()
-        }
-    except Exception as e:
-        print(f"Error {ticker}: {e}")
-        return None
-
+@app.get("/")
+async def root():
+    return {"status": "online", "message": "Trading Backend is running"}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    async with httpx.AsyncClient() as client:
-        while True:
-            try:
-                tasks = [get_ticker_data(client, t) for t in TICKERS]
-                res = await asyncio.gather(*tasks)
-                valid = [r for r in res if r is not None]
-                await websocket.send_json(valid)
-                await asyncio.sleep(20)
-            except:
-                break
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    try:
+        async with httpx.AsyncClient() as client:
+            while True:
+                tasks = [get_ticker_data(client, ticker) for ticker in TICKERS]
+                results = await asyncio.gather(*tasks)
+                # סינון תוצאות ריקות
+                valid_results = [r for r in results if r is not None]
+                await websocket.send_json(valid_results)
+                await asyncio.sleep(10) # עדכון כל 10 שניות
+    except WebSocketDisconnect:
+        print("Client disconnected")
+    except Exception as e:
+        print(f"Error: {e}")
