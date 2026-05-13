@@ -14,7 +14,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-TICKERS = ["FNGU", "AVGO", "AMZN", "NFLX", "NVDA", "GOOGL", "META", "AAPL", "MU", "MSFT", "PLTR", "TSEM", "LXRX"]
+TICKERS = ["FNGU", "AVGO", "AMZN", "NFLX", "NVDA", "GOOGL", "META", "AAPL", "MU", "MSFT", "PLTR"]
 
 @app.get("/")
 async def root():
