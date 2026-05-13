@@ -7,44 +7,39 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #020617; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; }
-        
-        /* הגדרות צבעי מפת חום */
         .up-strong { background-color: #064e3b; border: 1px solid #10b981; }
         .up-mild { background-color: #065f46; border: 1px solid #059669; }
         .down-mild { background-color: #7f1d1d; border: 1px solid #dc2626; }
         .down-strong { background-color: #450a0a; border: 1px solid #991b1b; }
         .neutral { background-color: #1e293b; border: 1px solid #475569; }
         
-        /* כרטיסיות מניות */
         .stock-card { cursor: pointer; transition: all 0.2s ease-in-out; position: relative; }
         .stock-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.6); z-index: 10; }
         
-        /* הדגשה ל-FNGU */
-        .fngu-special { border: 3px solid #fcd34d !important; box-shadow: 0 0 15px rgba(252, 211, 77, 0.3); }
-        .fngu-badge { position: absolute; top: -10px; right: 10px; background: #fcd34d; color: #000; font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 4px; z-index: 20; }
+        .fngu-special { border: 2px solid #fcd34d !important; box-shadow: 0 0 15px rgba(252, 211, 77, 0.2); }
+        .fngu-badge { position: absolute; top: -10px; right: 10px; background: #fcd34d; color: #000; font-size: 9px; font-weight: bold; padding: 1px 6px; border-radius: 4px; z-index: 20; }
         
         #status-tag { transition: all 0.3s ease; }
     </style>
 </head>
-<body class="p-8 text-white">
+<body class="p-4 md:p-8 text-white">
     <div class="max-w-[1600px] mx-auto">
-        <header class="flex justify-between items-end mb-10 border-b border-white/10 pb-6">
+        <header class="flex justify-between items-end mb-8 border-b border-white/10 pb-6">
             <div>
-                <h1 class="text-4xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-l from-emerald-400 to-cyan-400">TECH TERMINAL</h1>
-                <p class="text-gray-400 text-sm mt-1 font-medium">מיון: חזקות משמאל | תמיכה ב-Extended Hours</p>
+                <h1 class="text-3xl md:text-4xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-l from-emerald-400 to-cyan-400 uppercase">TECH TERMINAL</h1>
+                <p class="text-gray-400 text-[11px] md:text-sm mt-1 font-medium">מיון: חזקות משמאל | עדכון כל 20 שניות (Yahoo Finance)</p>
             </div>
-            <div id="status-tag" class="text-xs font-mono text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-                מתחבר ל-Hugging Face...
+            <div id="status-tag" class="text-[10px] font-mono text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                ממתין לחיבור...
             </div>
         </header>
         
-        <div id="heatmap" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-5">
-            <!-- המניות יוזרקו כאן -->
+        <div id="heatmap" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <!-- הכרטיסים יוזרקו כאן דינמית -->
         </div>
     </div>
 
     <script>
-        // כתובת ה-WebSocket שלך ב-Hugging Face
         const HF_SPACE_URL = 'wss://dannyzzzzzz-trading-backend.hf.space/ws';
         const container = document.getElementById('heatmap');
         const statusTag = document.getElementById('status-tag');
@@ -54,7 +49,8 @@
 
             ws.onopen = () => {
                 statusTag.innerText = "מחובר לשרת • LIVE";
-                statusTag.className = "text-xs font-mono text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20";
+                statusTag.className = "text-[10px] font-mono text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20";
+                console.log("Connected to YFinance Backend");
             };
 
             ws.onmessage = (event) => {
@@ -62,12 +58,8 @@
                     let stocks = JSON.parse(event.data);
                     if (!stocks || stocks.length === 0) return;
                     
-                    // מיון: אחוז שינוי מהפתיחה (החזקות ביותר משמאל)
-                    stocks.sort((a, b) => {
-                        const pctA = ((a.price - a.open_price) / a.open_price);
-                        const pctB = ((b.price - b.open_price) / b.open_price);
-                        return pctB - pctA;
-                    });
+                    // מיון: הירוקות ביותר בצד שמאל
+                    stocks.sort((a, b) => b.daily_change - a.daily_change);
 
                     renderHeatmap(stocks);
                 } catch (e) {
@@ -77,12 +69,11 @@
 
             ws.onerror = (err) => {
                 statusTag.innerText = "שגיאת חיבור";
-                statusTag.className = "text-xs font-mono text-red-500 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20";
+                statusTag.className = "text-[10px] font-mono text-red-500 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20";
             };
 
             ws.onclose = () => {
-                statusTag.innerText = "החיבור נסגר - מנסה להתחבר שוב...";
-                statusTag.className = "text-xs font-mono text-gray-500 bg-gray-500/10 px-3 py-1 rounded-full border border-gray-500/20";
+                statusTag.innerText = "מנסה להתחבר מחדש...";
                 setTimeout(connect, 5000);
             };
         }
@@ -91,72 +82,75 @@
             container.innerHTML = '';
             
             stocks.forEach(s => {
-                const diffOpen = s.price - s.open_price;
-                const pctOpen = (diffOpen / s.open_price) * 100;
                 const isFNGU = s.ticker === 'FNGU';
+                const change = s.daily_change;
                 
-                // הגדרת תגית מצב שוק (Pre/After/Live)
+                // הגדרת תגיות מצב שוק
                 let stateLabel = '';
-                let stateClass = 'hidden'; // מוסתר כברירת מחדל
-                
+                let stateClass = '';
+                let refLabel = 'Open';
+
                 if (s.state === 'PRE') { 
                     stateLabel = 'PRE-MARKET'; 
-                    stateClass = 'inline-block bg-blue-500/20 text-blue-400 border border-blue-500/30'; 
+                    stateClass = 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+                    refLabel = 'Prev Close'; 
                 }
                 else if (s.state === 'AFTER') { 
                     stateLabel = 'AFTER-HOURS'; 
-                    stateClass = 'inline-block bg-purple-500/20 text-purple-400 border border-purple-500/30'; 
+                    stateClass = 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+                    refLabel = 'Prev Close';
                 }
-                else if (s.state === 'REGULAR') {
+                else if (s.state === 'CLOSED') {
+                    stateLabel = 'CLOSED';
+                    stateClass = 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+                    refLabel = 'Prev Close';
+                }
+                else {
                     stateLabel = 'LIVE';
-                    stateClass = 'inline-block bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                    stateClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+                    refLabel = 'Open';
                 }
 
+                // בחירת צבע חום לפי אחוז שינוי
                 let heatClass = 'neutral';
-                if (pctOpen > 1.2) heatClass = 'up-strong';
-                else if (pctOpen > 0) heatClass = 'up-mild';
-                else if (pctOpen < -1.2) heatClass = 'down-strong';
-                else if (pctOpen < 0) heatClass = 'down-mild';
-
-                // אם אנחנו ב-Pre-market, נשנה מעט את צבע הרקע שיהיה כחלחל
-                const specialStyle = (s.state === 'PRE') ? 'box-shadow: inset 0 0 20px rgba(59, 130, 246, 0.1);' : '';
+                if (change > 1.5) heatClass = 'up-strong';
+                else if (change > 0) heatClass = 'up-mild';
+                else if (change < -1.5) heatClass = 'down-strong';
+                else if (change < 0) heatClass = 'down-mild';
 
                 const card = document.createElement('div');
-                card.className = `${heatClass} stock-card p-5 rounded-2xl flex flex-col justify-between h-56 ${isFNGU ? 'fngu-special' : ''}`;
-                card.style = specialStyle;
+                card.className = `${heatClass} stock-card p-5 rounded-2xl flex flex-col justify-between h-52 ${isFNGU ? 'fngu-special' : ''}`;
                 
-                card.onclick = () => {
-                    window.open(`https://www.tradingview.com/symbols/${s.ticker}/`, '_blank');
-                };
+                card.onclick = () => window.open(`https://www.tradingview.com/symbols/${s.ticker}/`, '_blank');
 
                 card.innerHTML = `
+                    ${isFNGU ? '<div class="fngu-badge">INDEX COMPASS</div>' : ''}
+                    
                     <div class="flex justify-between items-start mb-2">
-                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md ${stateClass}">${stateLabel}</span>
-                        ${isFNGU ? '<div class="fngu-badge">INDEX COMPASS</div>' : ''}
-                    </div>
-
-                    <div class="flex justify-between items-start">
-                        <span class="text-2xl font-black ${isFNGU ? 'text-yellow-300' : ''}">${s.ticker}</span>
+                        <span class="text-[9px] font-bold px-2 py-0.5 rounded border ${stateClass}">${stateLabel}</span>
                         <div class="text-left leading-tight">
-                            <div class="text-[9px] opacity-60 uppercase font-bold text-gray-300">Open</div>
+                            <div class="text-[8px] opacity-60 uppercase font-bold text-gray-300">${refLabel}</div>
                             <div class="text-xs font-mono font-bold">${s.open_price.toFixed(2)}</div>
                         </div>
                     </div>
 
-                    <div class="my-3">
-                        <div class="text-3xl font-mono font-bold tracking-tight">$${s.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
-                        <div class="text-md mt-1 font-black ${pctOpen >= 0 ? 'text-emerald-300' : 'text-rose-300'}">
-                            ${pctOpen >= 0 ? '▲' : '▼'} ${Math.abs(pctOpen).toFixed(2)}%
+                    <div class="flex justify-between items-end mb-4">
+                        <div class="flex flex-col">
+                            <span class="text-2xl font-black tracking-tighter ${isFNGU ? 'text-yellow-300' : ''}">${s.ticker}</span>
+                            <span class="text-3xl font-mono font-bold tracking-tight mt-1">$${s.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-black ${change >= 0 ? 'text-emerald-300' : 'text-rose-300'}">
+                                ${change >= 0 ? '▲' : '▼'} ${Math.abs(change).toFixed(2)}%
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mt-auto pt-4 border-t border-white/5 flex justify-between items-center">
-                        <span class="text-[10px] font-bold uppercase tracking-widest opacity-50 text-gray-300">
-                            ${s.state === 'REGULAR' ? 'Daily Change' : 'Ext. Hours'}
+                    <div class="mt-auto pt-3 border-t border-white/10 flex justify-between items-center">
+                        <span class="text-[9px] font-bold uppercase tracking-widest opacity-50 text-gray-300">
+                            ${s.state === 'REGULAR' ? 'Regular Session' : 'Extended Trading'}
                         </span>
-                        <span class="text-sm font-mono font-bold ${s.daily_change >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
-                            ${s.daily_change >= 0 ? '+' : ''}${s.daily_change.toFixed(2)}%
-                        </span>
+                        <div class="h-1.5 w-1.5 rounded-full ${s.state === 'REGULAR' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-500'}"></div>
                     </div>
                 `;
                 container.appendChild(card);
