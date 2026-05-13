@@ -3,21 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tech Terminal - Heatmap</title>
+    <title>Tech Terminal - Live Heatmap</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #020617; color: white; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: #050a10; color: #e2e8f0; font-family: system-ui, sans-serif; }
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
             padding: 20px;
         }
         .stock-card {
-            transition: transform 0.2s;
+            transition: transform 0.2s, filter 0.2s;
             cursor: pointer;
+            position: relative;
+            overflow: hidden;
         }
-        .stock-card:hover { transform: scale(1.05); }
+        .stock-card:hover { transform: scale(1.05); filter: brightness(1.2); }
+        .positive { background-color: #064e3b; border-left: 4px solid #10b981; } /* ירוק כהה */
+        .negative { background-color: #7f1d1d; border-left: 4px solid #ef4444; } /* אדום כהה */
+        .neutral { background-color: #1e293b; border-left: 4px solid #94a3b8; }
     </style>
 </head>
 <body>
@@ -25,71 +30,74 @@
     <!-- Header -->
     <header class="p-6 border-b border-slate-800 flex justify-between items-center">
         <div>
-            <h1 class="text-3xl font-black text-emerald-400 italic">TECH TERMINAL</h1>
+            <h1 class="text-3xl font-black text-emerald-400 tracking-tighter">TECH TERMINAL</h1>
             <p class="text-slate-400 text-sm">מיון: חזקות משמאל | לחיצה לגרף TradingView</p>
         </div>
-        <div id="status-tag" class="px-4 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-mono">
-            ממתין לנתונים...
+        <div id="status-tag" class="px-3 py-1 rounded-full text-xs font-bold bg-red-900/30 text-red-400 border border-red-500/50">
+            ממתין לחיבור...
         </div>
     </header>
 
     <!-- Heatmap Grid -->
     <div id="heatmap" class="grid-container">
-        <!-- המניות ירונדרו כאן על ידי ה-JavaScript -->
+        <!-- הכרטיסיות ייווצרו כאן דינמית -->
     </div>
 
     <script>
-        // הכתובת המעודכנת לשרת שלך ב-Render - כולל wss וסיומת /ws
+        // *** עדכן כאן את הכתובת של ה-SPACE שלך ***
         const ws = new WebSocket('wss://dannyzzzzzz-trading-backend.hf.space/ws');
-        const container = document.getElementById('heatmap');
+        
+        const heatmap = document.getElementById('heatmap');
         const statusTag = document.getElementById('status-tag');
 
-        ws.onopen = () => {
-            statusTag.innerText = "מחובר לשרת - מעדכן...";
-            statusTag.classList.replace('text-emerald-400', 'text-blue-400');
-        };
+        function connect() {
+            const ws = new WebSocket(HF_SPACE_URL);
 
-        ws.onmessage = (event) => {
-            const stocks = JSON.parse(event.data);
-            renderHeatmap(stocks);
-            
-            const now = new Date();
-            statusTag.innerText = `עודכן לאחרונה: ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-        };
+            ws.onopen = () => {
+                statusTag.innerText = "מחובר לשרת";
+                statusTag.className = "px-3 py-1 rounded-full text-xs font-bold bg-emerald-900/30 text-emerald-400 border border-emerald-500/50";
+            };
 
-        ws.onerror = (error) => {
-            statusTag.innerText = "שגיאת חיבור";
-            statusTag.classList.replace('text-emerald-400', 'text-red-400');
-        };
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                renderHeatmap(data);
+            };
+
+            ws.onclose = () => {
+                statusTag.innerText = "שגיאת חיבור - מנסה שוב...";
+                statusTag.className = "px-3 py-1 rounded-full text-xs font-bold bg-red-900/30 text-red-400 border border-red-500/50";
+                setTimeout(connect, 3000); // ניסיון חיבור מחדש אוטומטי
+            };
+        }
 
         function renderHeatmap(stocks) {
-            // מיון מהשינוי הגבוה לנמוך
+            // מיון לפי אחוז שינוי (מהגבוה לנמוך)
             stocks.sort((a, b) => b.daily_change - a.daily_change);
-            
-            container.innerHTML = '';
 
-            stocks.forEach(s => {
-                const isPositive = s.daily_change >= 0;
-                const bgColor = isPositive ? 'bg-emerald-900/40' : 'bg-red-900/40';
-                const textColor = isPositive ? 'text-emerald-400' : 'text-red-400';
-                const borderColor = isPositive ? 'border-emerald-500/30' : 'border-red-500/30';
-
+            heatmap.innerHTML = '';
+            stocks.forEach(stock => {
                 const card = document.createElement('div');
-                card.className = `${bgColor} ${borderColor} border p-4 rounded-xl stock-card`;
+                const isPositive = stock.daily_change >= 0;
+                card.className = `stock-card p-4 rounded-lg ${isPositive ? 'positive' : 'negative'}`;
                 
-                // לחיצה פותחת את הגרף ב-TradingView
-                card.onclick = () => window.open(`https://www.tradingview.com/symbols/${s.ticker}`, '_blank');
+                // הוספת לחיצה למעבר לגרף
+                card.onclick = () => window.open(`https://www.tradingview.com/symbols/${stock.ticker}`, '_blank');
 
                 card.innerHTML = `
-                    <div class="text-xs text-slate-400 font-bold mb-1">${s.ticker}</div>
-                    <div class="text-xl font-mono font-bold">$${s.price.toFixed(2)}</div>
-                    <div class="${textColor} text-sm font-bold mt-2">
-                        ${isPositive ? '▲' : '▼'} ${Math.abs(s.daily_change).toFixed(2)}%
+                    <div class="flex justify-between items-start">
+                        <span class="text-xl font-bold">${stock.ticker}</span>
+                        <span class="text-xs opacity-70">${isPositive ? '▲' : '▼'}</span>
+                    </div>
+                    <div class="mt-2 text-2xl font-mono">${stock.price.toFixed(2)}</div>
+                    <div class="text-sm font-bold ${isPositive ? 'text-emerald-300' : 'text-red-300'}">
+                        ${isPositive ? '+' : ''}${stock.daily_change.toFixed(2)}%
                     </div>
                 `;
-                container.appendChild(card);
+                heatmap.appendChild(card);
             });
         }
+
+        connect();
     </script>
 </body>
 </html>
