@@ -6,18 +6,22 @@
     <title>TECH TERMINAL - Real Time Heatmap</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #020617; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: #020617; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; }
+        
+        /* הגדרות צבעי מפת חום */
         .up-strong { background-color: #064e3b; border: 1px solid #10b981; }
         .up-mild { background-color: #065f46; border: 1px solid #059669; }
         .down-mild { background-color: #7f1d1d; border: 1px solid #dc2626; }
         .down-strong { background-color: #450a0a; border: 1px solid #991b1b; }
         .neutral { background-color: #1e293b; border: 1px solid #475569; }
         
+        /* כרטיסיות מניות */
         .stock-card { cursor: pointer; transition: all 0.2s ease-in-out; position: relative; }
         .stock-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.6); z-index: 10; }
         
+        /* הדגשה ל-FNGU */
         .fngu-special { border: 3px solid #fcd34d !important; box-shadow: 0 0 15px rgba(252, 211, 77, 0.3); }
-        .fngu-badge { position: absolute; top: -10px; right: 10px; background: #fcd34d; color: #000; font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 4px; }
+        .fngu-badge { position: absolute; top: -10px; right: 10px; background: #fcd34d; color: #000; font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 4px; z-index: 20; }
         
         #status-tag { transition: all 0.3s ease; }
     </style>
@@ -27,20 +31,20 @@
         <header class="flex justify-between items-end mb-10 border-b border-white/10 pb-6">
             <div>
                 <h1 class="text-4xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-l from-emerald-400 to-cyan-400">TECH TERMINAL</h1>
-                <p class="text-gray-400 text-sm mt-1 font-medium">מיון: חזקות משמאל | עדכון כל 20 שניות</p>
+                <p class="text-gray-400 text-sm mt-1 font-medium">מיון: חזקות משמאל | תמיכה ב-Extended Hours</p>
             </div>
             <div id="status-tag" class="text-xs font-mono text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-                ממתין לחיבור...
+                מתחבר ל-Hugging Face...
             </div>
         </header>
         
         <div id="heatmap" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-5">
-            <!-- הכרטיסים יוזרקו כאן דינמית -->
+            <!-- המניות יוזרקו כאן -->
         </div>
     </div>
 
     <script>
-        // כתובת ה-WebSocket המדויקת מה-Space שלך
+        // כתובת ה-WebSocket שלך ב-Hugging Face
         const HF_SPACE_URL = 'wss://dannyzzzzzz-trading-backend.hf.space/ws';
         const container = document.getElementById('heatmap');
         const statusTag = document.getElementById('status-tag');
@@ -51,7 +55,6 @@
             ws.onopen = () => {
                 statusTag.innerText = "מחובר לשרת • LIVE";
                 statusTag.className = "text-xs font-mono text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20";
-                console.log("Connected to Backend");
             };
 
             ws.onmessage = (event) => {
@@ -59,7 +62,7 @@
                     let stocks = JSON.parse(event.data);
                     if (!stocks || stocks.length === 0) return;
                     
-                    // מיון: הירוקות ביותר בצד שמאל
+                    // מיון: אחוז שינוי מהפתיחה (החזקות ביותר משמאל)
                     stocks.sort((a, b) => {
                         const pctA = ((a.price - a.open_price) / a.open_price);
                         const pctB = ((b.price - b.open_price) / b.open_price);
@@ -75,13 +78,12 @@
             ws.onerror = (err) => {
                 statusTag.innerText = "שגיאת חיבור";
                 statusTag.className = "text-xs font-mono text-red-500 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20";
-                console.error("WebSocket Error:", err);
             };
 
             ws.onclose = () => {
-                statusTag.innerText = "החיבור נסגר - מנסה שוב...";
+                statusTag.innerText = "החיבור נסגר - מנסה להתחבר שוב...";
                 statusTag.className = "text-xs font-mono text-gray-500 bg-gray-500/10 px-3 py-1 rounded-full border border-gray-500/20";
-                setTimeout(connect, 5000); // ניסיון חיבור מחדש
+                setTimeout(connect, 5000);
             };
         }
 
@@ -93,6 +95,15 @@
                 const pctOpen = (diffOpen / s.open_price) * 100;
                 const isFNGU = s.ticker === 'FNGU';
                 
+                // הגדרת תגית מצב שוק
+                let stateLabel = '';
+                let stateClass = '';
+                if (s.state === 'PRE') { stateLabel = 'PRE'; stateClass = 'bg-blue-500/20 text-blue-400'; }
+                else if (s.state === 'AFTER') { stateLabel = 'AFTER'; stateClass = 'bg-purple-500/20 text-purple-400'; }
+                else if (s.state === 'CLOSED') { stateLabel = 'CLOSED'; stateClass = 'bg-gray-500/20 text-gray-400'; }
+                else { stateLabel = 'LIVE'; stateClass = 'bg-emerald-500/20 text-emerald-400'; }
+
+                // קביעת צבע לפי חוזק התנועה מהפתיחה
                 let heatClass = 'neutral';
                 if (pctOpen > 1.2) heatClass = 'up-strong';
                 else if (pctOpen > 0) heatClass = 'up-mild';
@@ -103,16 +114,19 @@
                 card.className = `${heatClass} stock-card p-5 rounded-2xl flex flex-col justify-between h-56 ${isFNGU ? 'fngu-special' : ''}`;
                 
                 card.onclick = () => {
-                    // קישור ל-TradingView (נאסד"ק כברירת מחדל, למעט FNGU ו-TSEM/LXRX במידת הצורך)
                     window.open(`https://www.tradingview.com/symbols/${s.ticker}/`, '_blank');
                 };
 
                 card.innerHTML = `
-                    ${isFNGU ? '<div class="fngu-badge">INDEX COMPASS</div>' : ''}
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="px-2 py-0.5 rounded text-[9px] font-bold ${stateClass}">${stateLabel}</span>
+                        ${isFNGU ? '<div class="fngu-badge">INDEX COMPASS</div>' : ''}
+                    </div>
+                    
                     <div class="flex justify-between items-start">
                         <span class="text-2xl font-black ${isFNGU ? 'text-yellow-300' : ''}">${s.ticker}</span>
-                        <div class="text-left leading-tight">
-                            <div class="text-[9px] opacity-60 uppercase font-bold text-gray-300">Open</div>
+                        <div class="text-left leading-tight text-gray-300">
+                            <div class="text-[9px] opacity-60 uppercase font-bold">Open</div>
                             <div class="text-xs font-mono font-bold">${s.open_price.toFixed(2)}</div>
                         </div>
                     </div>
@@ -125,7 +139,9 @@
                     </div>
 
                     <div class="mt-auto pt-4 border-t border-white/5 flex justify-between items-center">
-                        <span class="text-[10px] font-bold uppercase tracking-widest opacity-50 text-gray-300">Vs Close:</span>
+                        <span class="text-[10px] font-bold uppercase tracking-widest opacity-50 text-gray-300 italic font-mono">
+                            ${s.state === 'REGULAR' ? 'Market' : 'Extended'}
+                        </span>
                         <span class="text-sm font-mono font-bold ${s.daily_change >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
                             ${s.daily_change >= 0 ? '+' : ''}${s.daily_change.toFixed(2)}%
                         </span>
@@ -135,7 +151,6 @@
             });
         }
 
-        // התחלת החיבור
         connect();
     </script>
 </body>
